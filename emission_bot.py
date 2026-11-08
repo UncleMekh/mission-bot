@@ -6,12 +6,16 @@ CLIENT_SECRET = os.environ["CLIENT_SECRET"]
 WEBHOOK_URL = os.environ["WEBHOOK_URL"]
 ROLE_MENTION = os.environ.get("ROLE_MENTION", "")
 
-# Канал MAX: если секреты не заданы — отправка в MAX просто пропускается
 MAX_BOT_TOKEN = os.environ.get("MAX_BOT_TOKEN", "")
 MAX_CHAT_ID = os.environ.get("MAX_CHAT_ID", "")
 
-CHECK_INTERVAL = 30  # опрос раз в 30 секунд
-MSK = timezone(timedelta(hours=3))  # московское время
+CHECK_INTERVAL = 30
+MSK = timezone(timedelta(hours=3))
+
+MAX_HEADERS = {
+    "Authorization": MAX_BOT_TOKEN,  # токен в заголовке, без Bearer
+    "Content-Type": "application/json",
+}
 
 def send_to_discord(text):
     r = requests.post(WEBHOOK_URL, json={"content": text})
@@ -23,8 +27,8 @@ def detect_max_chat_id():
         return
     try:
         r = requests.get(
-            "https://botapi.max.ru/chats/EmissionRU",
-            params={"access_token": MAX_BOT_TOKEN},
+            "https://platform-api2.max.ru/chats/EmissionRU",
+            headers=MAX_HEADERS,
         )
         print("MAX поиск канала:", r.status_code)
         print("MAX ответ (ищите chat_id):", r.text[:500])
@@ -33,17 +37,18 @@ def detect_max_chat_id():
 
 def send_to_max(text):
     if not MAX_BOT_TOKEN or not MAX_CHAT_ID:
-        return  # секреты не заданы — пропускаем
+        return
     try:
         r = requests.post(
-            "https://botapi.max.ru/messages",
-            params={"chat_id": MAX_CHAT_ID, "access_token": MAX_BOT_TOKEN},
+            "https://platform-api2.max.ru/messages",
+            params={"chat_id": MAX_CHAT_ID},
+            headers=MAX_HEADERS,
             json={"text": text},
         )
         print("MAX:", r.status_code, "-", text[:60])
         if r.status_code != 200:
             print("MAX ответ:", r.text[:200])
-            detect_max_chat_id()  # автоматический подбор ID
+            detect_max_chat_id()
     except Exception as e:
         print("MAX ошибка:", e)
 
@@ -68,13 +73,10 @@ def fmt_duration(start_dt, end_dt):
         return f"{h} ч {m} мин"
     return f"{m} мин"
 
-# При старте запоминаем последний известный конец выброса,
-# но НЕ сообщаем — иначе при каждом запуске будет ложное оповещение
 data = get_emission()
 known_end = data["previousEnd"] if data else None
 print(f"Старт. Последний известный конец выброса: {known_end}")
 
-# Тест связи с MAX при старте смены
 if MAX_BOT_TOKEN and MAX_CHAT_ID:
     send_to_max("📡 Сигнализатор Зоны на связи — тест соединения")
 
@@ -88,7 +90,7 @@ while True:
             dur = fmt_duration(start_dt, end_dt)
             end_msk = end_dt.astimezone(MSK).strftime("%H:%M")
             send_all(
-                f"✅ {ROLE_MENTION} закончен в {end_msk} МСК\n"
+                f"✅ {ROLE_MENTION} Выброс закончен в {end_msk} МСК\n"
                 f"⏱️ Длился: {dur}\n"
                 f"Зона снова проходима — можно лутать артефакты!"
             )
