@@ -2,23 +2,32 @@ name: Emission Bot
 
 on:
   schedule:
-    - cron: "0 */5 * * *"   # запуск каждые 5 часов
-  workflow_dispatch:          # и кнопка ручного запуска
+    - cron: "0 */5 * * *"  # запуск каждые 5 часов
+  workflow_dispatch:       # и кнопка ручного запуска
 
 concurrency:
   group: emission-bot
-  cancel-in-progress: true    # новая задача подменяет старую без паузы
+  cancel-in-progress: true  # новая задача подменяет старую без пауз
 
 jobs:
   run-bot:
     runs-on: ubuntu-latest
-    timeout-minutes: 330      # живёт 5,5 часов, потом подменяется
+    timeout-minutes: 330   # живёт 5,5 часов, потом поднимается
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
       - run: pip install requests
+
+      - name: Доверяем сертификатам Минцифры (для MAX API)
+        run: |
+          curl -fsSL -o russian_trusted_root_ca.crt https://gu-st.ru/content/lending/russian_trusted_root_ca_pem.crt
+          curl -fsSL -o russian_trusted_sub_ca.crt https://gu-st.ru/content/lending/russian_trusted_sub_ca_pem.crt
+          sudo cp russian_trusted_root_ca.crt russian_trusted_sub_ca.crt /usr/local/share/ca-certificates/
+          sudo update-ca-certificates
+          echo "REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt" >> "$GITHUB_ENV"
+
       - run: python emission_bot.py
         env:
           CLIENT_ID: ${{ secrets.CLIENT_ID }}
