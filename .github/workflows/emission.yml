@@ -25,3 +25,5 @@ jobs:
           CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
           WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
           ROLE_MENTION: ${{ secrets.ROLE_MENTION }}
+          MAX_BOT_TOKEN: ${{ secrets.MAX_BOT_TOKEN }}
+          MAX_CHAT_ID: ${{ secrets.MAX_CHAT_ID }}
