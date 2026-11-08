@@ -1,0 +1,27 @@
+name: Emission Bot
+
+on:
+  schedule:
+    - cron: "0 */5 * * *"   # запуск каждые 5 часов
+  workflow_dispatch:          # и кнопка ручного запуска
+
+concurrency:
+  group: emission-bot
+  cancel-in-progress: true    # новая задача подменяет старую без паузы
+
+jobs:
+  run-bot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 330      # живёт 5,5 часов, потом подменяется
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install requests
+      - run: python emission_bot.py
+        env:
+          CLIENT_ID: ${{ secrets.CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
+          WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
+          ROLE_MENTION: ${{ secrets.ROLE_MENTION }}
