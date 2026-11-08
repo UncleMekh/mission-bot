@@ -27,3 +27,4 @@ jobs:
           ROLE_MENTION: ${{ secrets.ROLE_MENTION }}
           MAX_BOT_TOKEN: ${{ secrets.MAX_BOT_TOKEN }}
           MAX_CHAT_ID: ${{ secrets.MAX_CHAT_ID }}
+          PYTHONUNBUFFERED: "1"
