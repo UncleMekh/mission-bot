@@ -88,7 +88,7 @@ while True:
             dur = fmt_duration(start_dt, end_dt)
             end_msk = end_dt.astimezone(MSK).strftime("%H:%M")
             send_all(
-                f"✅ {ROLE_MENTION} Выброс закончен в {end_msk} МСК\n"
+                f"✅ {ROLE_MENTION} закончен в {end_msk} МСК\n"
                 f"⏱️ Длился: {dur}\n"
                 f"Зона снова проходима — можно лутать артефакты!"
             )
