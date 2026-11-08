@@ -37,7 +37,7 @@ while True:
             start_dt = datetime.fromisoformat(data["previousStart"].replace("Z", "+00:00"))
             dur_min = round((end_dt - start_dt).total_seconds() / 60)
             send_to_discord(
-                f"✅ **Выброс закончен** {ROLE_MENTION}\nЗона снова проходима — можно лутать артефакты!"
+                f"✅ {ROLE_MENTION} закончен\nЗона снова проходима — можно лутать артефакты!"
             )
             known_end = new_end
         else:
