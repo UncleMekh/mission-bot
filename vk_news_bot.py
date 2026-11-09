@@ -25,7 +25,6 @@ def send_to_lolka(news):
         "description": body["text"],
         "url": body["link"],
         "color": EMBED_COLOR,
-        "footer": {"text": "Источник новости"},
     }
     if body.get("photo"):
         embed["image"] = {"url": body["photo"]}
