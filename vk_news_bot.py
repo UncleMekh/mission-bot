@@ -41,11 +41,11 @@ def build_text(item):
     link = f"https://vk.com/wall-{VK_GROUP_ID}_{item['id']}"
     if len(text) > 1800:
         text = text[:1800] + "…"
-    return f"📰 Новость из клуба STALCRAFT\n\n{text}\n\n{link}"
+    return f"**📰 Новость из клуба STALZONE**\n\n{text}\n\n[📰 источник новости]({link})"
 
 # Старт: запоминаем последний пост, старое не пересылаем
 items = get_posts()
-known_id = 1151667
+known_id = 1151666
 print(f"Старт. Последний известный пост ВК: {known_id}")
 
 while True:
