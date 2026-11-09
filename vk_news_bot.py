@@ -55,7 +55,7 @@ def build_news(item):
 
 # Старт: запоминаем последний пост, старое не пересылаем
 items = get_posts()
-known_id = 1151667
+known_id = max(i["id"] for i in items) if items else None
 print(f"Старт. Последний известный пост ВК: {known_id}")
 
 while True:
