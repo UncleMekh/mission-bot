@@ -6,6 +6,7 @@ WEBHOOK_URL = os.environ["NEWS_WEBHOOK_URL"]
 
 CHECK_INTERVAL = 300  # проверка каждые 5 минут
 API_URL = "https://api.vk.com/method/"
+EMBED_COLOR = 30719  # фирменный синий VK (#0077FF) - полоска слева у карточки
 
 def vk_method(name, **params):
     params["access_token"] = VK_TOKEN
@@ -17,16 +18,20 @@ def vk_method(name, **params):
         return None
     return data["response"]
 
-def send_to_lolka(text, photo_url=None):
-    payload = {"content": text}
-    if photo_url:
-        payload["embeds"] = [{
-            "title": "Пост ВКонтакте",
-            "url": f"https://vk.com/wall-{VK_GROUP_ID}",
-            "image": {"url": photo_url},
-        }]
+def send_to_lolka(news):
+    title, body = news  # заголовок и данные новости
+    embed = {
+        "title": title,
+        "description": body["text"],
+        "url": body["link"],
+        "color": EMBED_COLOR,
+        "footer": {"text": "Источник новости"},
+    }
+    if body.get("photo"):
+        embed["image"] = {"url": body["photo"]}
+    payload = {"embeds": [embed]}
     r = requests.post(WEBHOOK_URL, json=payload)
-    print("Lolka:", r.status_code, "-", text[:50])
+    print("Lolka:", r.status_code, "-", title[:50])
     if r.status_code != 204:
         print("Ответ:", r.text[:200])
 
@@ -36,16 +41,22 @@ def get_posts():
         return None
     return resp.get("items", [])
 
-def build_text(item):
+def build_news(item):
     text = item.get("text", "").strip()
     link = f"https://vk.com/wall-{VK_GROUP_ID}_{item['id']}"
-    if len(text) > 1800:
-        text = text[:1800] + "…"
-    return f"**📰 Новость из клуба STALZONE**\n\n{text}\n\n[📰 источник новости]({link})"
+    if len(text) > 3800:
+        text = text[:3800] + "…"
+    photos = [
+        a["photo"]["sizes"][-1]["url"]
+        for a in item.get("attachments", [])
+        if a.get("type") == "photo"
+    ]
+    return ("📰 Новость из клуба STALZONE",
+            {"text": text, "link": link, "photo": photos[0] if photos else None})
 
 # Старт: запоминаем последний пост, старое не пересылаем
 items = get_posts()
-known_id = 1151666
+known_id = max(i["id"] for i in items) if items else None
 print(f"Старт. Последний известный пост ВК: {known_id}")
 
 while True:
@@ -55,12 +66,7 @@ while True:
         fresh = sorted([i for i in items if i["id"] > known_id],
                        key=lambda i: i["id"])
         for item in fresh:
-            photos = [
-                a["photo"]["sizes"][-1]["url"]
-                for a in item.get("attachments", [])
-                if a.get("type") == "photo"
-            ]
-            send_to_lolka(build_text(item), photos[0] if photos else None)
+            send_to_lolka(build_news(item))
             time.sleep(3)  # пауза между постами
         if fresh:
             known_id = newest
