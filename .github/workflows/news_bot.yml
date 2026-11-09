@@ -18,7 +18,7 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install requests
-      - run: python vk_news_bot.py
+      - run: python -u vk_news_bot.py
         env:
           VK_SERVICE_TOKEN: ${{ secrets.VK_SERVICE_TOKEN }}
           VK_GROUP_ID: ${{ secrets.VK_GROUP_ID }}
