@@ -1,0 +1,25 @@
+name: News Bot
+
+on:
+  schedule:
+    - cron: '50 4,9,14,19,0 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: news-bot
+  cancel-in-progress: true
+
+jobs:
+  run-bot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install requests
+      - run: python vk_news_bot.py
+        env:
+          VK_SERVICE_TOKEN: ${{ secrets.VK_SERVICE_TOKEN }}
+          VK_GROUP_ID: ${{ secrets.VK_GROUP_ID }}
+          NEWS_WEBHOOK_URL: ${{ secrets.NEWS_WEBHOOK_URL }}
