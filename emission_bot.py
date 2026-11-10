@@ -16,17 +16,24 @@ MAX_HEADERS = {
     "Content-Type": "application/json",
 }
 
+CHANNEL_LINKS = {
+    "RU":  "[RU](https://max.ru/channel_EmissionRU)",
+    "EU":  "[EU](https://max.ru/channel_EmissionEU)",
+    "NA":  "[NA](https://max.ru/channel_EmissionNA)",
+    "SEA": "[SEA](https://max.ru/channel_EmissionSEA)",
+}
+
 # Сегменты: какой MAX-чат слушает какую зону, флажок «слать ли в Лолку»
 REGIONS = [
-    {"code": "RU",  "max_chat": os.environ.get("MAX_CHAT_ID", ""),     "discord": True},
-    {"code": "EU",  "max_chat": os.environ.get("MAX_CHAT_ID_EU", ""),  "discord": False},
-    {"code": "NA",  "max_chat": os.environ.get("MAX_CHAT_ID_NA", ""),  "discord": False},
-    {"code": "SEA", "max_chat": os.environ.get("MAX_CHAT_ID_CEA", ""), "discord": False},
+    {"code": "RU",  "max_chat": os.environ.get("MAX_CHAT_ID", ""),     "lolka": True},
+    {"code": "EU",  "max_chat": os.environ.get("MAX_CHAT_ID_EU", ""),  "lolka": False},
+    {"code": "NA",  "max_chat": os.environ.get("MAX_CHAT_ID_NA", ""),  "lolka": False},
+    {"code": "SEA", "max_chat": os.environ.get("MAX_CHAT_ID_CEA", ""), "lolka": False},
 ]
 
-def send_to_discord(text):
+def send_to_lolka(text):
     r = requests.post(WEBHOOK_URL, json={"content": text})
-    print("Discord:", r.status_code, "-", text[:60])
+    print("Лолка:", r.status_code, "-", text[:60])
 
 def send_to_max(chat_id, text):
     if not MAX_BOT_TOKEN or not chat_id:
@@ -36,7 +43,7 @@ def send_to_max(chat_id, text):
             "https://platform-api2.max.ru/messages",
             params={"chat_id": chat_id},
             headers=MAX_HEADERS,
-            json={"text": text},
+            json={"text": text, "format": "markdown"},
         )
         print(f"MAX({chat_id}):", r.status_code, "-", text[:60])
         if r.status_code != 200:
@@ -61,31 +68,45 @@ def fmt_duration(start_dt, end_dt):
         return f"{h} ч {m} мин"
     return f"{m} мин"
 
-def forecast_window(start_dt):
-    """Окно следующего выброса: +2…+4 часа от НАЧАЛА прошедшего."""
-    start = (start_dt + timedelta(hours=2)).astimezone(MSK).strftime("%H:%M")
-    stop = (start_dt + timedelta(hours=4)).astimezone(MSK).strftime("%H:%M")
-    return f"⚠️ Ожидается выброс с {start} до {stop}"
-
 def build_message(region, data):
-    end_dt = datetime.fromisoformat(data["previousEnd"].replace("Z", "+00:00"))
     start_dt = datetime.fromisoformat(data["previousStart"].replace("Z", "+00:00"))
+    end_dt = datetime.fromisoformat(data["previousEnd"].replace("Z", "+00:00"))
     dur = fmt_duration(start_dt, end_dt)
-    end_msk = end_dt.astimezone(MSK).strftime("%H:%M")
-    forecast = forecast_window(start_dt)
+
+    start_msk = start_dt.astimezone(MSK).strftime("%H:%M")
+    f_start = (start_dt + timedelta(hours=2)).astimezone(MSK).strftime("%H:%M")
+    f_end = (start_dt + timedelta(hours=4)).astimezone(MSK).strftime("%H:%M")
+
+    timers = " · ".join(
+        r if r == region else CHANNEL_LINKS[r]
+        for r in CHANNEL_LINKS
+    )
+
+    max_msg = (
+        "✅ **ВЫБРОС ЗАКОНЧЕН**\n"
+        "\n"
+        f"**Начался:** {start_msk} МСК\n"
+        f"**Длился:** {dur}\n"
+        f"**Ожидается:** с {f_start} по {f_end}\n"
+        "\n"
+        "Зона вновь безопасна\n"
+        "\n"
+        f"Таймеры: {timers}"
+    )
+
+    lolka_msg = (
+        f"✅ {ROLE_MENTION} ЗАКОНЧЕН\n"
+        "\n"
+        f"**Начался:** {start_msk} МСК\n"
+        f"**Длился:** {dur}\n"
+        f"**Ожидается:** с {f_start} по {f_end}\n"
+        "\n"
+        "Зона вновь безопасна"
+    )
+
     return {
-        "discord": (
-            f"✅ {ROLE_MENTION} закончен в {end_msk} МСК\n"
-            f"⏱️ Длился: {dur}\n"
-            f"🏃 Зона снова проходима — можно лутать артефакты!\n"
-            f"{forecast}"
-        ),
-        "max": (
-            f"✅ Выброс закончен в {end_msk} МСК\n"
-            f"⏱️ Длился: {dur}\n"
-            f"🏃 Зона снова проходима — можно лутать артефакты!\n"
-            f"{forecast}"
-        ),
+        "max": max_msg,
+        "lolka": lolka_msg,
     }
 
 # Старт: по каждому сегменту запоминаем свой последний конец выброса
@@ -104,8 +125,8 @@ while True:
         new_end = data.get("previousEnd")
         if new_end != known[code]:
             texts = build_message(code, data)
-            if reg["discord"]:
-                send_to_discord(texts["discord"])
+            if reg["lolka"]:
+                send_to_lolka(texts["lolka"])
             send_to_max(reg["max_chat"], texts["max"])
             known[code] = new_end
         else:
