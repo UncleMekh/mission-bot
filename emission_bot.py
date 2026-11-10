@@ -21,7 +21,7 @@ REGIONS = [
     {"code": "RU",  "max_chat": os.environ.get("MAX_CHAT_ID", ""),     "discord": True},
     {"code": "EU",  "max_chat": os.environ.get("MAX_CHAT_ID_EU", ""),  "discord": False},
     {"code": "NA",  "max_chat": os.environ.get("MAX_CHAT_ID_NA", ""),  "discord": False},
-    {"code": "CEA", "max_chat": os.environ.get("MAX_CHAT_ID_CEA", ""), "discord": False},
+    {"code": "SEA", "max_chat": os.environ.get("MAX_CHAT_ID_CEA", ""), "discord": False},
 ]
 
 def send_to_discord(text):
