@@ -75,13 +75,13 @@ def build_message(region, data):
     forecast = forecast_window(end_dt)
     return {
         "discord": (
-            f"✅ [{region}] {ROLE_MENTION} закончен в {end_msk} МСК\n"
+            f"✅ {ROLE_MENTION} закончен в {end_msk} МСК\n"
             f"⏱️ Длился: {dur}\n"
             f"🏃 Зона снова проходима — можно лутать артефакты!\n"
             f"{forecast}"
         ),
         "max": (
-            f"✅ [{region}] Выброс закончен в {end_msk} МСК\n"
+            f"✅ Выброс закончен в {end_msk} МСК\n"
             f"⏱️ Длился: {dur}\n"
             f"🏃 Зона снова проходима — можно лутать артефакты!\n"
             f"{forecast}"
