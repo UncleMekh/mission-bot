@@ -61,10 +61,10 @@ def fmt_duration(start_dt, end_dt):
         return f"{h} ч {m} мин"
     return f"{m} мин"
 
-def forecast_window(end_dt):
-    """Окно следующего выброса: +2…+4 часа от конца прошедшего."""
-    start = (end_dt + timedelta(hours=2)).astimezone(MSK).strftime("%H:%M")
-    stop = (end_dt + timedelta(hours=4)).astimezone(MSK).strftime("%H:%M")
+def forecast_window(start_dt):
+    """Окно следующего выброса: +2…+4 часа от НАЧАЛА прошедшего."""
+    start = (start_dt + timedelta(hours=2)).astimezone(MSK).strftime("%H:%M")
+    stop = (start_dt + timedelta(hours=4)).astimezone(MSK).strftime("%H:%M")
     return f"⚠️ Ожидается выброс с {start} до {stop}"
 
 def build_message(region, data):
@@ -72,7 +72,7 @@ def build_message(region, data):
     start_dt = datetime.fromisoformat(data["previousStart"].replace("Z", "+00:00"))
     dur = fmt_duration(start_dt, end_dt)
     end_msk = end_dt.astimezone(MSK).strftime("%H:%M")
-    forecast = forecast_window(end_dt)
+    forecast = forecast_window(start_dt)
     return {
         "discord": (
             f"✅ {ROLE_MENTION} закончен в {end_msk} МСК\n"
