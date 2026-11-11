@@ -15,7 +15,7 @@ CHECK_INTERVAL = 30
 MSK = timezone(timedelta(hours=3))
 
 # ===== НОВОЕ: настройки меню =====
-ADMIN_CHAT_ID = "-901493859"        # личка бот↔вы: сюда падают тикеты
+ADMIN_CHAT_ID = "901403859"        # личка бот↔вы: сюда падают тикеты
 USER_CHAT = {}   # запоминаем chat_id тех, кто писал боту
 MAX_API = "https://platform-api2.max.ru"
 
