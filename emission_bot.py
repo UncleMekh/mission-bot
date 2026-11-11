@@ -15,7 +15,7 @@ CHECK_INTERVAL = 30
 MSK = timezone(timedelta(hours=3))
 
 # ===== НОВОЕ: настройки меню =====
-ADMIN_CHAT_ID = "901403859"        # личка бот↔вы: сюда падают тикеты
+ADMIN_CHAT_ID = "46656348"        # личка бот↔вы: сюда падают тикеты
 USER_CHAT = {}   # запоминаем chat_id тех, кто писал боту
 MAX_API = "https://platform-api2.max.ru"
 
@@ -127,7 +127,10 @@ def poll_max_updates():
                 text = ((msg.get("body") or {}).get("text") or "").strip()
                 low = text.lower()
                 if uid in TICKET_MODE and text:
-                    fwd = f"🛠 НОВЫЙ ТИКЕТ от {uname}:\n{text}"
+                    fwd = (f"🛠 НОВЫЙ ТИКЕТ\n"
+                           f"От: {uname} (id {uid})\n"
+                           "\n"
+                           f"{text}")
                     send_to_max(ADMIN_CHAT_ID, fwd)
                     TICKET_MODE.discard(uid)
                     send_to_max(chat_id, "✅ Тикет отправлен администрации")
