@@ -113,6 +113,7 @@ def poll_max_updates():
         data = r.json()
         for u in data.get("updates", []):
             ut = u.get("update_type")
+            print("UPD:", ut, "|", str(u)[:150])   # ДЕБАГ: показываем всё подряд
             if ut == "message_created":
                 msg = u.get("message", {})
                 sender = msg.get("sender") or {}
@@ -140,17 +141,22 @@ def poll_max_updates():
             elif ut == "message_callback":
                 cb = u.get("callback") or {}
                 payload = cb.get("payload", "")
-                uid = str((cb.get("user") or {}).get("user_id", ""))
-                chat_id = ((cb.get("message") or {}).get("recipient") or {}).get("chat_id")
                 cb_id = cb.get("callback_id", "")
+                msg = cb.get("message") or {}
+                uid = str(((cb.get("user") or {}).get("user_id", "")) or
+                          ((msg.get("sender") or {}).get("user_id", "")))
+                chat_id = (((msg.get("recipient") or {}).get("chat_id")) or
+                           msg.get("chat_id"))
+                print(f"CALLBACK: payload={payload!r} chat_id={chat_id} uid={uid}")
                 if cb_id:
-                    try:
-                        max_request("POST", "/answers",
-                                    params={"callback_id": cb_id},
-                                    json={"notification": "Принято"})
-                    except Exception as e:
-                        print("answers ошибка:", e)
-                handle_menu_action(payload, chat_id, uid)
+                    ans = max_request("POST", "/answers",
+                                      params={"callback_id": cb_id},
+                                      json={"notification": "Принято"})
+                    print("answers:", ans.status_code)
+                if chat_id:
+                    handle_menu_action(payload, chat_id, uid)
+                else:
+                    print("Не понял, куда отвечать на кнопку — пришлите этот лог целиком")
         new_marker = data.get("marker")
         if new_marker and new_marker != MARKER:
             max_request("POST", "/updates", json={"marker": new_marker})
