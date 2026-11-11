@@ -7,6 +7,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: curl -s -H "Authorization: $MAX_BOT_TOKEN" "https://platform-api2.max.ru/updates?timeout=5"
+      - name: probe
         env:
           MAX_BOT_TOKEN: ${{ secrets.MAX_BOT_TOKEN }}
+        run: |
+          curl -s \
+            -H "Authorization: $MAX_BOT_TOKEN" \
+            "https://platform-api2.max.ru/updates?timeout=5"
