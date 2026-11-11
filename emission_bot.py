@@ -80,7 +80,7 @@ def send_menu(chat_id):
         "attachments": [{
             "type": "inline_keyboard",
             "payload": {"buttons": [[
-                {"type": "callback", "text": "🛠 Отправить обращение", "payload": "ticket"},
+                {"type": "callback", "text": "🛠 Обращение", "payload": "ticket"},
                 {"type": "callback", "text": "💰 Поддержка", "payload": "support"},
             ], [
                 {"type": "callback", "text": "📺 Стримы", "payload": "streams"},
@@ -242,9 +242,6 @@ for reg in REGIONS:
     data = get_emission(reg["code"])
     known[reg["code"]] = data["previousEnd"] if data else None
     print(f"Старт [{reg['code']}]. Последний известный конец выброса: {known[reg['code']]}")
-
-print("ADMIN_CHAT_ID repr:", repr(ADMIN_CHAT_ID))
-send_to_max(ADMIN_CHAT_ID, "🔧 Проверка доставки тикета")
 
 while True:
     for reg in REGIONS:
