@@ -142,6 +142,9 @@ def poll_max_updates():
                 elif "стрим" in low:
                     send_to_max(chat_id, STREAMS_TEXT)
                 elif "привет" in low or "меню" in low or text == "/start":
+                    send_menu(chat_id)     
+                else:
+                    send_to_max(chat_id, "Не понял команду — вот меню 👇")
                     send_menu(chat_id)
             elif ut == "message_callback":
                 cb = u.get("callback") or {}
