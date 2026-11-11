@@ -10,7 +10,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: pip install requests
+      - run: pip install -U requests certifi
       - run: python bot_probe.py
         env:
           MAX_BOT_TOKEN: ${{ secrets.MAX_BOT_TOKEN }}
