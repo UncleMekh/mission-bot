@@ -10,7 +10,6 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: pip install -U requests certifi
-      - run: python bot_probe.py
+      - run: curl -s -H "Authorization: $MAX_BOT_TOKEN" "https://platform-api2.max.ru/updates?timeout=5"
         env:
           MAX_BOT_TOKEN: ${{ secrets.MAX_BOT_TOKEN }}
