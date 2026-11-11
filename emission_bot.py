@@ -80,8 +80,8 @@ def send_menu(chat_id):
         "attachments": [{
             "type": "inline_keyboard",
             "payload": {"buttons": [[
-                {"type": "callback", "text": "🛠 Отправить тикет", "payload": "ticket"},
-                {"type": "callback", "text": "🧑‍🔧 Поддержка проекта", "payload": "support"},
+                {"type": "callback", "text": "🛠 Отправить обращение", "payload": "ticket"},
+                {"type": "callback", "text": "💰 Поддержка", "payload": "support"},
             ], [
                 {"type": "callback", "text": "📺 Стримы", "payload": "streams"},
             ]]}
@@ -127,10 +127,7 @@ def poll_max_updates():
                 text = ((msg.get("body") or {}).get("text") or "").strip()
                 low = text.lower()
                 if uid in TICKET_MODE and text:
-                    fwd = (f"🛠 НОВЫЙ ТИКЕТ\n"
-                           f"От: {uname} (id {uid})\n"
-                           "\n"
-                           f"{text}")
+                    fwd = f"🛠 НОВЫЙ ТИКЕТ от {uname}:\n{text}"
                     send_to_max(ADMIN_CHAT_ID, fwd)
                     TICKET_MODE.discard(uid)
                     send_to_max(chat_id, "✅ Тикет отправлен администрации")
