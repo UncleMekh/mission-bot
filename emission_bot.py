@@ -1,4 +1,4 @@
-import os, time, requests, urllib3
+import os, time, json, requests, urllib3
 from datetime import datetime, timedelta, timezone
 from urllib3.exceptions import InsecureRequestWarning
 
@@ -16,6 +16,7 @@ MSK = timezone(timedelta(hours=3))
 
 # ===== НОВОЕ: настройки меню =====
 ADMIN_USER_ID = "46656348"          # ваш user_id из пробы
+USER_CHAT = {}   # запоминаем chat_id тех, кто писал боту
 MAX_API = "https://platform-api2.max.ru"
 
 # Тексты меню — ЗАМЕНИТЕ НА СВОИ, это заглушки:
@@ -113,13 +114,14 @@ def poll_max_updates():
         data = r.json()
         for u in data.get("updates", []):
             ut = u.get("update_type")
-            print("UPD:", ut, "|", str(u)[:150])   # ДЕБАГ: показываем всё подряд
             if ut == "message_created":
                 msg = u.get("message", {})
                 sender = msg.get("sender") or {}
                 uid = str(sender.get("user_id", ""))
                 uname = sender.get("name", "")
                 chat_id = (msg.get("recipient") or {}).get("chat_id")
+                if uid and chat_id is not None:
+                    USER_CHAT[uid] = chat_id   # запоминаем, куда ему отвечать
                 text = ((msg.get("body") or {}).get("text") or "").strip()
                 low = text.lower()
                 if uid in TICKET_MODE and text:
@@ -139,6 +141,7 @@ def poll_max_updates():
                 elif "привет" in low or "меню" in low or text == "/start":
                     send_menu(chat_id)
             elif ut == "message_callback":
+                print("CALLBACK FULL:", json.dumps(u, ensure_ascii=False)[:1200])
                 cb = u.get("callback") or {}
                 payload = cb.get("payload", "")
                 cb_id = cb.get("callback_id", "")
@@ -146,23 +149,26 @@ def poll_max_updates():
                 uid = str(((cb.get("user") or {}).get("user_id", "")) or
                           ((msg.get("sender") or {}).get("user_id", "")))
                 chat_id = (((msg.get("recipient") or {}).get("chat_id")) or
-                           msg.get("chat_id"))
+                           msg.get("chat_id") or cb.get("chat_id"))
+                if chat_id is None and uid in USER_CHAT:
+                    chat_id = USER_CHAT[uid]
                 print(f"CALLBACK: payload={payload!r} chat_id={chat_id} uid={uid}")
                 if cb_id:
                     ans = max_request("POST", "/answers",
                                       params={"callback_id": cb_id},
                                       json={"notification": "Принято"})
                     print("answers:", ans.status_code)
-                if chat_id:
+                if chat_id is not None:
                     handle_menu_action(payload, chat_id, uid)
                 else:
-                    print("Не понял, куда отвечать на кнопку — пришлите этот лог целиком")
+                    print("Чат неизвестен — пришлите строку CALLBACK FULL целиком")
         new_marker = data.get("marker")
         if new_marker and new_marker != MARKER:
             max_request("POST", "/updates", json={"marker": new_marker})
             MARKER = new_marker
     except Exception as e:
         print("poll ошибка:", e)
+
 
 def get_emission(region):
     r = requests.get(
