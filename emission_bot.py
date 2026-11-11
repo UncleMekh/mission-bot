@@ -1,5 +1,8 @@
-import os, time, requests
+import os, time, requests, urllib3
 from datetime import datetime, timedelta, timezone
+from urllib3.exceptions import InsecureRequestWarning
+
+urllib3.disable_warnings(InsecureRequestWarning)
 
 CLIENT_ID = os.environ["CLIENT_ID"]
 CLIENT_SECRET = os.environ["CLIENT_SECRET"]
@@ -10,6 +13,15 @@ MAX_BOT_TOKEN = os.environ.get("MAX_BOT_TOKEN", "")
 
 CHECK_INTERVAL = 30
 MSK = timezone(timedelta(hours=3))
+
+# ===== НОВОЕ: настройки меню =====
+ADMIN_USER_ID = "46656348"          # ваш user_id из пробы
+MAX_API = "https://platform-api2.max.ru"
+
+# Тексты меню — ЗАМЕНИТЕ НА СВОИ, это заглушки:
+SUPPORT_TEXT = "🧑‍🔧 Поддержка проекта: напишите админу в личку — тут вставьте свой контакт."
+STREAMS_TEXT = "📺 Стримы: тут вставьте ссылку на ваш Twitch/YouTube."
+TICKET_NOTICE = "🛠 Напишите суть тикета одним сообщением — я перешлю его в Лолку."
 
 MAX_HEADERS = {
     "Authorization": MAX_BOT_TOKEN,
@@ -31,6 +43,16 @@ REGIONS = [
     {"code": "SEA", "max_chat": os.environ.get("MAX_CHAT_ID_CEA", ""), "lolka": False},
 ]
 
+# ===== НОВОЕ: единый запрос к MAX с запасным вариантом по SSL =====
+def max_request(method, path, **kwargs):
+    url = f"{MAX_API}{path}"
+    try:
+        return requests.request(method, url, headers=MAX_HEADERS, timeout=20, **kwargs)
+    except requests.exceptions.SSLError:
+        # сервер MAX отдаёт неполную цепочку сертификата — как в пробе с curl -k
+        return requests.request(method, url, headers=MAX_HEADERS, timeout=20,
+                                verify=False, **kwargs)
+
 def send_to_lolka(text):
     r = requests.post(WEBHOOK_URL, json={"content": text})
     print("Лолка:", r.status_code, "-", text[:60])
@@ -39,17 +61,102 @@ def send_to_max(chat_id, text):
     if not MAX_BOT_TOKEN or not chat_id:
         return
     try:
-        r = requests.post(
-            "https://platform-api2.max.ru/messages",
-            params={"chat_id": chat_id},
-            headers=MAX_HEADERS,
-            json={"text": text, "format": "markdown"},
-        )
+        r = max_request("POST", "/messages", params={"chat_id": chat_id},
+                        json={"text": text, "format": "markdown"})
         print(f"MAX({chat_id}):", r.status_code, "-", text[:60])
         if r.status_code != 200:
             print("MAX ответ:", r.text[:200])
     except Exception as e:
         print("MAX ошибка:", e)
+
+# ===== НОВОЕ: меню с кнопками =====
+def send_menu(chat_id):
+    r = max_request("POST", "/messages", params={"chat_id": chat_id}, json={
+        "text": "Главное меню — выберите кнопку:",
+        "format": "markdown",
+        "attachments": [{
+            "type": "inline_keyboard",
+            "payload": {"buttons": [[
+                {"type": "callback", "text": "🛠 Отправить тикет", "payload": "ticket"},
+                {"type": "callback", "text": "🧑‍🔧 Поддержка проекта", "payload": "support"},
+            ], [
+                {"type": "callback", "text": "📺 Стримы", "payload": "streams"},
+            ]]}
+        }]
+    })
+    print("Меню:", r.status_code)
+
+def handle_menu_action(payload, chat_id, uid):
+    if payload == "ticket":
+        TICKET_MODE.add(uid)
+        send_to_max(chat_id, TICKET_NOTICE)
+    elif payload == "support":
+        send_to_max(chat_id, SUPPORT_TEXT)
+    elif payload == "streams":
+        send_to_max(chat_id, STREAMS_TEXT)
+    else:
+        send_to_max(chat_id, "Не понял кнопку, открываю меню заново")
+        send_menu(chat_id)
+
+def poll_max_updates():
+    global MARKER
+    if not MAX_BOT_TOKEN:
+        return
+    try:
+        params = {"timeout": 2}
+        if MARKER:
+            params["marker"] = MARKER
+        r = max_request("GET", "/updates", params=params)
+        if r.status_code != 200:
+            print("updates:", r.status_code, r.text[:150])
+            return
+        data = r.json()
+        for u in data.get("updates", []):
+            ut = u.get("update_type")
+            if ut == "message_created":
+                msg = u.get("message", {})
+                sender = msg.get("sender") or {}
+                uid = str(sender.get("user_id", ""))
+                uname = sender.get("name", "")
+                chat_id = (msg.get("recipient") or {}).get("chat_id")
+                text = ((msg.get("body") or {}).get("text") or "").strip()
+                low = text.lower()
+                if uid in TICKET_MODE and text:
+                    fwd = (f"🛠 НОВЫЙ ТИКЕТ\n"
+                           f"От: {uname} (id {uid})\n"
+                           "\n"
+                           f"{text}")
+                    send_to_max(ADMIN_CHAT_ID, fwd)
+                    TICKET_MODE.discard(uid)
+                    send_to_max(chat_id, "✅ Тикет отправлен администрации")
+                elif "тикет" in low:
+                    handle_menu_action("ticket", chat_id, uid)
+                elif "поддержка" in low:
+                    send_to_max(chat_id, SUPPORT_TEXT)
+                elif "стрим" in low:
+                    send_to_max(chat_id, STREAMS_TEXT)
+                elif "привет" in low or "меню" in low or text == "/start":
+                    send_menu(chat_id)
+            elif ut == "message_callback":
+                cb = u.get("callback") or {}
+                payload = cb.get("payload", "")
+                uid = str((cb.get("user") or {}).get("user_id", ""))
+                chat_id = ((cb.get("message") or {}).get("recipient") or {}).get("chat_id")
+                cb_id = cb.get("callback_id", "")
+                if cb_id:
+                    try:
+                        max_request("POST", "/answers",
+                                    params={"callback_id": cb_id},
+                                    json={"notification": "Принято"})
+                    except Exception as e:
+                        print("answers ошибка:", e)
+                handle_menu_action(payload, chat_id, uid)
+        new_marker = data.get("marker")
+        if new_marker and new_marker != MARKER:
+            max_request("POST", "/updates", json={"marker": new_marker})
+            MARKER = new_marker
+    except Exception as e:
+        print("poll ошибка:", e)
 
 def get_emission(region):
     r = requests.get(
@@ -109,6 +216,9 @@ def build_message(region, data):
         "lolka": lolka_msg,
     }
 
+MARKER = 0
+TICKET_MODE = set()
+
 # Старт: по каждому сегменту запоминаем свой последний конец выброса
 known = {}
 for reg in REGIONS:
@@ -131,4 +241,5 @@ while True:
             known[code] = new_end
         else:
             print(f"[{code}] Проверка {datetime.now(timezone.utc):%H:%M}: изменений нет")
+    poll_max_updates()   # НОВОЕ: слушаем личку и кнопки — каждый цикл
     time.sleep(CHECK_INTERVAL)
