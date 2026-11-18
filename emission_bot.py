@@ -175,15 +175,24 @@ def poll_max_updates():
         print("poll ошибка:", e)
 
 
-def get_emission(region):
-    r = requests.get(
-        f"https://eapi.stalcraft.net/{region}/emission",
-        headers={"Client-Id": CLIENT_ID, "Client-Secret": CLIENT_SECRET},
-    )
-    if r.status_code != 200:
-        print(f"Ошибка API {region}:", r.status_code)
-        return None
-    return r.json()
+def get_emission(region, retries=3):
+    for attempt in range(retries):
+        try:
+            r = requests.get(
+                f"https://api.stalcraft.net/{region}/emission",
+                headers={"client-id": CLIENT_ID, "client-secret": CLIENT_SECRET},
+                timeout=15,
+            )
+            if r.status_code != 200:
+                print(f"Ошибка API {region}:", r.status_code)
+                return None
+            return r.json()
+        except Exception as e:
+            print(f"[{region}] запрос не удался (попытка {attempt+1}/{retries}): {e}")
+            time.sleep(10)
+    print(f"[{region}] все попытки исчерпаны — пропускаю цикл")
+    return None
+
 
 def fmt_duration(start_dt, end_dt):
     mins = round((end_dt - start_dt).total_seconds() / 60)
