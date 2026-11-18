@@ -179,7 +179,7 @@ def get_emission(region, retries=3):
     for attempt in range(retries):
         try:
             r = requests.get(
-                f"https://api.stalcraft.net/{region}/emission",
+                f"https://eapi.stalzone.com/{region}/emission",
                 headers={"client-id": CLIENT_ID, "client-secret": CLIENT_SECRET},
                 timeout=15,
             )
