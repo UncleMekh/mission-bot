@@ -253,19 +253,23 @@ for reg in REGIONS:
     print(f"Старт [{reg['code']}]. Последний известный конец выброса: {known[reg['code']]}")
 
 while True:
-    for reg in REGIONS:
-        code = reg["code"]
-        data = get_emission(code)
-        if not data:
-            continue
-        new_end = data.get("previousEnd")
-        if new_end != known[code]:
-            texts = build_message(code, data)
-            if reg["lolka"]:
-                send_to_lolka(texts["lolka"])
-            send_to_max(reg["max_chat"], texts["max"])
-            known[code] = new_end
-        else:
-            print(f"[{code}] Проверка {datetime.now(timezone.utc):%H:%M}: изменений нет")
-    poll_max_updates()   # НОВОЕ: слушаем личку и кнопки — каждый цикл
-    time.sleep(CHECK_INTERVAL)
+    try:
+        for reg in REGIONS:
+            code = reg["code"]
+            data = get_emission(code)
+            if not data:
+                continue
+            new_end = data.get("previousEnd")
+            if new_end != known[code]:
+                texts = build_message(code, data)
+                if reg["lolka"]:
+                    send_to_lolka(texts["lolka"])
+                send_to_max(reg["max_chat"], texts["max"])
+                known[code] = new_end
+            else:
+                print(f"[{code}] Проверка {datetime.now(timezone.utc):%H:%M}: изменений нет")
+        poll_max_updates()   # слушаем личку и кнопки — каждый цикл
+        time.sleep(CHECK_INTERVAL)
+    except Exception as e:
+        print("Ошибка цикла, продолжаю работу:", e)
+        time.sleep(30)
