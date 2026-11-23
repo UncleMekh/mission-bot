@@ -14,7 +14,7 @@ MAX_BOT_TOKEN = os.environ.get("MAX_BOT_TOKEN", "")
 CHECK_INTERVAL = 30
 MSK = timezone(timedelta(hours=3))
 
-# ===== НОВОЕ: настройки меню =====
+# ===== Настройки меню =====
 ADMIN_CHAT_ID = 501403859        # личка бот↔вы: сюда падают тикеты
 USER_CHAT = {}   # запоминаем chat_id тех, кто писал боту
 MAX_API = "https://platform-api2.max.ru"
@@ -26,10 +26,19 @@ STREAMS_TEXT = ("📺 Стримы:\n"
                 "[VK Видео — m3xgamer](https://live.vkvideo.ru/m3xgamer)")
 TICKET_NOTICE = "🛠 Опишите суть тикета одним сообщением — я передам его администрации."
 
+STATUS_ONLINE_TEXT = "🟢 Сервера в сети, зона ждёт тебя!"
+STATUS_OFFLINE_TEXT = ("🔴 Сервера недоступны, подожди ещё немного!\n"
+                       "— Возможно, идут техработы: по средам 08:00–14:00 МСК.")
+
 MAX_HEADERS = {
     "Authorization": MAX_BOT_TOKEN,
     "Content-Type": "application/json",
 }
+
+# ===== НОВОЕ: проверка состояния серверов EXBO =====
+STATUS_URL = "https://eapi.stalzone.com/regions"   # тот же API, что и для выбросов
+STATUS_CACHE_FILE = "status_cache.json"
+STATUS_CACHE_TTL = 180   # не дёргаем API чаще, чем раз в 3 минуты
 
 CHANNEL_LINKS = {
     "RU":  "[RU](https://max.ru/channel_EmissionRU)",
@@ -46,7 +55,7 @@ REGIONS = [
     {"code": "SEA", "max_chat": os.environ.get("MAX_CHAT_ID_CEA", ""), "lolka": False},
 ]
 
-# ===== НОВОЕ: единый запрос к MAX с запасным вариантом по SSL =====
+# ===== Единый запрос к MAX с запасным вариантом по SSL =====
 def max_request(method, path, **kwargs):
     url = f"{MAX_API}{path}"
     try:
@@ -72,7 +81,36 @@ def send_to_max(chat_id, text):
     except Exception as e:
         print("MAX ошибка:", e)
 
-# ===== НОВОЕ: меню с кнопками =====
+
+# ===== НОВОЕ: проверка состояния серверов =====
+def get_server_status():
+    """Проверка живости EXBO через официальный API. Кэш на 3 минуты."""
+    try:
+        with open(STATUS_CACHE_FILE, "r", encoding="utf-8") as f:
+            cache = json.load(f)
+        if time.time() - cache["ts"] < STATUS_CACHE_TTL:
+            return cache["result"]
+    except Exception:
+        pass
+
+    result = {"ok": False}
+    try:
+        r = requests.get(STATUS_URL, timeout=10)
+        if r.status_code == 200 and r.text.strip():
+            result = {"ok": True}
+    except Exception:
+        pass   # любая ошибка сети — честный красный статус, бот не роняем
+
+    try:
+        with open(STATUS_CACHE_FILE, "w", encoding="utf-8") as f:
+            json.dump({"ts": time.time(), "result": result}, f)
+    except Exception:
+        pass
+
+    return result
+
+
+# ===== Меню с кнопками =====
 def send_menu(chat_id):
     r = max_request("POST", "/messages", params={"chat_id": chat_id}, json={
         "text": "Главное меню — выберите кнопку:",
@@ -84,6 +122,7 @@ def send_menu(chat_id):
                 {"type": "callback", "text": "💰 Поддержка", "payload": "support"},
             ], [
                 {"type": "callback", "text": "📺 Стримы", "payload": "streams"},
+                {"type": "callback", "text": "🖥 Состояние сервера", "payload": "status"},
             ]]}
         }]
     })
@@ -97,6 +136,12 @@ def handle_menu_action(payload, chat_id, uid):
         send_to_max(chat_id, SUPPORT_TEXT)
     elif payload == "streams":
         send_to_max(chat_id, STREAMS_TEXT)
+    elif payload == "status":
+        status = get_server_status()
+        if status and status["ok"]:
+            send_to_max(chat_id, STATUS_ONLINE_TEXT)
+        else:
+            send_to_max(chat_id, STATUS_OFFLINE_TEXT)
     else:
         send_to_max(chat_id, "Не понял кнопку, открываю меню заново")
         send_menu(chat_id)
@@ -141,8 +186,14 @@ def poll_max_updates():
                     send_to_max(chat_id, SUPPORT_TEXT)
                 elif "стрим" in low:
                     send_to_max(chat_id, STREAMS_TEXT)
+                elif "статус" in low or "сервер" in low:
+                    status = get_server_status()
+                    if status and status["ok"]:
+                        send_to_max(chat_id, STATUS_ONLINE_TEXT)
+                    else:
+                        send_to_max(chat_id, STATUS_OFFLINE_TEXT)
                 elif "привет" in low or "меню" in low or text == "/start":
-                    send_menu(chat_id)     
+                    send_menu(chat_id)
                 else:
                     send_to_max(chat_id, "Не понял команду — вот меню 👇")
                     send_menu(chat_id)
