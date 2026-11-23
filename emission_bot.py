@@ -21,7 +21,10 @@ MAX_API = "https://platform-api2.max.ru"
 
 # Тексты меню — ЗАМЕНИТЕ НА СВОИ, это заглушки:
 SUPPORT_TEXT = "💰 Поддержка: [dalink.to/m3xgamer](https://dalink.to/m3xgamer)"
-STREAMS_TEXT = ("📺 Стримы:\n"
+STREAMS_TEXT = ("👋 Привет! Меня зовут Дядя Мэх.\n"
+                "В свободное время я веду стримы — буду рад, если заглянешь и посмотришь,"
+                " а если всё понравится, ещё и подпишишься 😄\n"
+                "\n"
                 "[Twitch — m3xgamer](https://www.twitch.tv/m3xgamer)\n"
                 "[VK Видео — m3xgamer](https://live.vkvideo.ru/m3xgamer)")
 TICKET_NOTICE = "🛠 Опишите суть тикета одним сообщением — я передам его администрации."
@@ -122,6 +125,7 @@ def send_menu(chat_id):
                 {"type": "callback", "text": "💰 Поддержка", "payload": "support"},
             ], [
                 {"type": "callback", "text": "📺 Стримы", "payload": "streams"},
+            ], [
                 {"type": "callback", "text": "🖥 Состояние сервера", "payload": "status"},
             ]]}
         }]
