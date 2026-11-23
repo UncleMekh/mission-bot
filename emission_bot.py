@@ -15,19 +15,20 @@ CHECK_INTERVAL = 30
 MSK = timezone(timedelta(hours=3))
 
 # ===== Настройки меню =====
-ADMIN_CHAT_ID = 501403859        # личка бот↔вы: сюда падают тикеты
+ADMIN_CHAT_ID = 501403859        # личка бот↔вы: сюда падают обращения
 USER_CHAT = {}   # запоминаем chat_id тех, кто писал боту
 MAX_API = "https://platform-api2.max.ru"
 
 # Тексты меню — ЗАМЕНИТЕ НА СВОИ, это заглушки:
-SUPPORT_TEXT = "💰 Поддержка: [dalink.to/m3xgamer](https://dalink.to/m3xgamer)"
+SUPPORT_TEXT = ("💰 Поддержать проект можно донатом:\n"
+                "[dalink.to/m3xgamer](https://dalink.to/m3xgamer)")
 STREAMS_TEXT = ("👋 Привет! Меня зовут Дядя Мэх.\n"
                 "В свободное время я веду стримы — буду рад, если заглянешь и посмотришь,"
                 " а если всё понравится, ещё и подпишишься 😄\n"
                 "\n"
-                "[Twitch — m3xgamer](https://www.twitch.tv/m3xgamer)\n"
-                "[VK Видео — m3xgamer](https://live.vkvideo.ru/m3xgamer)")
-TICKET_NOTICE = "🛠 Опишите суть тикета одним сообщением — я передам его администрации."
+                "🌐 [Twitch — m3xgame](https://www.twitch.tv/m3xgame)\n"
+                "🌐 [VK Видео — m3xgamer](https://live.vkvideo.ru/m3xgamer)")
+TICKET_NOTICE = "🛠 Опишите суть обращения одним сообщением — я передам его администрации."
 
 STATUS_ONLINE_TEXT = "🟢 Сервера в сети, зона ждёт тебя!"
 STATUS_OFFLINE_TEXT = ("🔴 Сервера недоступны, подожди ещё немного!\n"
@@ -176,15 +177,15 @@ def poll_max_updates():
                 text = ((msg.get("body") or {}).get("text") or "").strip()
                 low = text.lower()
                 if uid in TICKET_MODE and text:
-                    fwd = (f"🛠 НОВЫЙ ТИКЕТ\n"
+                    fwd = (f"🛠 НОВОЕ ОБРАЩЕНИЕ\n"
                            f"От: {uname} (id {uid})\n"
                            "\n"
                            f"{text}")
                     time.sleep(3)
                     send_to_max(ADMIN_CHAT_ID, fwd)
                     TICKET_MODE.discard(uid)
-                    send_to_max(chat_id, "✅ Тикет отправлен администрации")
-                elif "тикет" in low:
+                    send_to_max(chat_id, "✅ Обращение отправлено администрации")
+                elif "обращение" in low:
                     handle_menu_action("ticket", chat_id, uid)
                 elif "поддержка" in low:
                     send_to_max(chat_id, SUPPORT_TEXT)
