@@ -4,9 +4,10 @@ from urllib3.exceptions import InsecureRequestWarning
 
 urllib3.disable_warnings(InsecureRequestWarning)
 
-CLIENT_ID = os.environ["CLIENT_ID"]
-CLIENT_SECRET = os.environ["CLIENT_SECRET"]
-WEBHOOK_URL = os.environ["WEBHOOK_URL"]          # Лолка: только RU-сегмент
+# --- КОНФИГУРАЦИЯ И ПЕРЕМЕННЫЕ ОКРУЖЕНИЯ ---
+CLIENT_ID = os.environ.get("CLIENT_ID")
+CLIENT_SECRET = os.environ.get("CLIENT_SECRET")
+WEBHOOK_URL = os.environ.get("WEBHOOK_URL")          # Лолка: только RU-сегмент
 ROLE_MENTION = os.environ.get("ROLE_MENTION", "")
 
 MAX_BOT_TOKEN = os.environ.get("MAX_BOT_TOKEN", "")
@@ -14,8 +15,18 @@ MAX_BOT_TOKEN = os.environ.get("MAX_BOT_TOKEN", "")
 CHECK_INTERVAL = 30
 MSK = timezone(timedelta(hours=3))
 
-# ===== Настройки меню =====
-ADMIN_CHAT_ID = int(os.environ.get("ADMIN_CHAT_ID", ""))        # бот↔группа: сюда падают обращения
+# Безопасное получение ADMIN_CHAT_ID (защита от ValueError и пустых значений)
+raw_admin_id = os.environ.get("ADMIN_CHAT_ID", "")
+if raw_admin_id and raw_admin_id.strip():
+    try:
+        ADMIN_CHAT_ID = int(raw_admin_id.strip())
+    except ValueError:
+        ADMIN_CHAT_ID = None
+        print("⚠️ ВНИМАНИЕ: Неверный формат ADMIN_CHAT_ID! Защита от тикетов отключена.")
+else:
+    ADMIN_CHAT_ID = None
+    print("⚠️ ВНИМАНИЕ: ADMIN_CHAT_ID не задан в переменных окружения! Защита от тикетов отключена.")
+
 USER_CHAT = {}   # запоминаем chat_id тех, кто писал боту
 MAX_API = "https://platform-api2.max.ru"
 
@@ -70,8 +81,13 @@ def max_request(method, path, **kwargs):
                                 verify=False, **kwargs)
 
 def send_to_lolka(text):
-    r = requests.post(WEBHOOK_URL, json={"content": text})
-    print("Лолка:", r.status_code, "-", text[:60])
+    if not WEBHOOK_URL:
+        return
+    try:
+        r = requests.post(WEBHOOK_URL, json={"content": text})
+        print("Лолка:", r.status_code, "-", text[:60])
+    except Exception as e:
+        print("Ошибка отправки в Лолку:", e)
 
 def send_to_max(chat_id, text):
     if not MAX_BOT_TOKEN or not chat_id:
@@ -116,6 +132,8 @@ def get_server_status():
 
 # ===== Меню с кнопками =====
 def send_menu(chat_id):
+    if not chat_id:
+        return
     r = max_request("POST", "/messages", params={"chat_id": chat_id}, json={
         "text": "Главное меню — выберите кнопку:",
         "format": "markdown",
@@ -134,6 +152,8 @@ def send_menu(chat_id):
     print("Меню:", r.status_code)
 
 def handle_menu_action(payload, chat_id, uid):
+    if not chat_id:
+        return
     if payload == "ticket":
         TICKET_MODE.add(uid)
         send_to_max(chat_id, TICKET_NOTICE)
@@ -164,74 +184,117 @@ def poll_max_updates():
             print("updates:", r.status_code, r.text[:150])
             return
         data = r.json()
-        for u in data.get("updates", []):
+        
+        for u in data.get("updates", ):
             ut = u.get("update_type")
+            
+            # Обработка сообщений
             if ut == "message_created":
                 msg = u.get("message", {})
                 sender = msg.get("sender") or {}
                 uid = str(sender.get("user_id", ""))
                 uname = sender.get("name", "")
                 chat_id = (msg.get("recipient") or {}).get("chat_id")
-                if uid and chat_id is not None:
-                    USER_CHAT[uid] = chat_id   # запоминаем, куда ему отвечать
+
+                if not uid or chat_id is None:
+                    continue
+
+                # 1. Запоминаем чат для ответа
+                USER_CHAT[uid] = chat_id
+
+                # 2. ГЛАВНАЯ ЗАЩИТА: Игнорируем сообщения ИЗ группы тикетов
+                if ADMIN_CHAT_ID and chat_id == ADMIN_CHAT_ID:
+                    continue  # Прерываем ТОЛЬКО эту итерацию цикла (это сообщение), идем к следующему
+
+                # 3. Получаем текст (если есть)
                 text = ((msg.get("body") or {}).get("text") or "").strip()
-                low = text.lower()
+                low = text.lower() if text else ""
+
+                # 4. Логика обработки
                 if uid in TICKET_MODE and text:
-                    fwd = (f"🛠 НОВОЕ ОБРАЩЕНИЕ\n"
+                    # Отправляем тикет
+                    fwd = (f"% НОВОЕ ОБРАЩЕНИЕ\n"
                            f"От: {uname} (id {uid})\n"
-                           "\n"
+                           f"\n"
                            f"{text}")
                     time.sleep(3)
-                    send_to_max(ADMIN_CHAT_ID, fwd)
+                    if ADMIN_CHAT_ID:
+                        send_to_max(ADMIN_CHAT_ID, fwd)
                     TICKET_MODE.discard(uid)
                     send_to_max(chat_id, "✅ Обращение отправлено администрации")
+                
                 elif "обращение" in low:
                     handle_menu_action("ticket", chat_id, uid)
+                
                 elif "поддержка" in low:
                     send_to_max(chat_id, SUPPORT_TEXT)
+                
                 elif "стрим" in low:
                     send_to_max(chat_id, STREAMS_TEXT)
+                
                 elif "статус" in low or "сервер" in low:
                     status = get_server_status()
                     if status and status["ok"]:
                         send_to_max(chat_id, STATUS_ONLINE_TEXT)
                     else:
                         send_to_max(chat_id, STATUS_OFFLINE_TEXT)
+                
                 elif "привет" in low or "меню" in low or text == "/start":
                     send_menu(chat_id)
-                else:
+                
+                elif text:
+                    # Если текст есть, но ни одна команда не подошла
                     send_to_max(chat_id, "Не понял команду — вот меню 👇")
                     send_menu(chat_id)
+
+            # Обработка нажатий кнопок
             elif ut == "message_callback":
                 cb = u.get("callback") or {}
                 payload = cb.get("payload", "")
                 cb_id = cb.get("callback_id", "")
                 msg = cb.get("message") or {}
+                
                 uid = str(((cb.get("user") or {}).get("user_id", "")) or
                           ((msg.get("sender") or {}).get("user_id", "")))
+                
                 chat_id = (((msg.get("recipient") or {}).get("chat_id")) or
                            msg.get("chat_id") or cb.get("chat_id"))
+                
                 if chat_id is None and uid in USER_CHAT:
                     chat_id = USER_CHAT[uid]
+                
                 print(f"CALLBACK: payload={payload!r} chat_id={chat_id} uid={uid}")
+                
                 if cb_id:
                     ans = max_request("POST", "/answers",
                                       params={"callback_id": cb_id},
                                       json={"notification": "Принято"})
                     print("answers:", ans.status_code)
+                
                 if chat_id is not None:
                     handle_menu_action(payload, chat_id, uid)
                 else:
                     print("Чат неизвестен — пришлите строку CALLBACK FULL целиком")
+
+        # ИСПРАВЛЕНИЕ: Блок обновления маркера теперь только ОДИН
         new_marker = data.get("marker")
         if new_marker and new_marker != MARKER:
-            max_request("POST", "/updates", json={"marker": new_marker})
-            MARKER = new_marker
+            resp = max_request("POST", "/updates", json={"marker": new_marker})
+            if resp.status_code == 200:
+                MARKER = new_marker
+                print(f"Маркер обновлен: {MARKER}")
+            else:
+                print(f"Не удалось обновить маркер: {resp.status_code}")
+
     except Exception as e:
         print("poll ошибка:", e)
 
 
 def get_emission(region, retries=3):
+    if not CLIENT_ID or not CLIENT_SECRET:
+        print("Ошибка: не заданы CLIENT_ID или CLIENT_SECRET")
+        return None
+        
     for attempt in range(retries):
         try:
             r = requests.get(
@@ -258,8 +321,13 @@ def fmt_duration(start_dt, end_dt):
     return f"{m} мин"
 
 def build_message(region, data):
-    start_dt = datetime.fromisoformat(data["previousStart"].replace("Z", "+00:00"))
-    end_dt = datetime.fromisoformat(data["previousEnd"].replace("Z", "+00:00"))
+    try:
+        start_dt = datetime.fromisoformat(data["previousStart"].replace("Z", "+00:00"))
+        end_dt = datetime.fromisoformat(data["previousEnd"].replace("Z", "+00:00"))
+    except (KeyError, ValueError) as e:
+        print(f"Ошибка парсинга времени для региона {region}: {e}")
+        return None
+
     dur = fmt_duration(start_dt, end_dt)
 
     start_msk = start_dt.astimezone(MSK).strftime("%H:%M")
@@ -267,7 +335,7 @@ def build_message(region, data):
     f_end = (start_dt + timedelta(hours=4)).astimezone(MSK).strftime("%H:%M")
 
     timers = " · ".join(
-        r if r == region else CHANNEL_LINKS[r]
+        r if r == region else CHANNEL_LINKS.get(r, r)
         for r in CHANNEL_LINKS
     )
 
@@ -297,6 +365,7 @@ def build_message(region, data):
         "max": max_msg,
         "lolka": lolka_msg,
     }
+
 def poll_loop():
     """Фоновая петля: постоянно слушает личку и кнопки."""
     while True:
@@ -306,8 +375,10 @@ def poll_loop():
             print("poll loop ошибка:", e)
         time.sleep(1)   # пауза между опросами новых сообщений
 
+# ===== ИНИЦИАЛИЗАЦИЯ ГЛОБАЛЬНЫХ ПЕРЕМЕННЫХ (ДО ЗАПУСКА ПОТОКОВ) ===
 MARKER = 0
 TICKET_MODE = set()
+
 # Запускаем фоновый поток: сообщения и кнопки обрабатываются мгновенно
 poller = threading.Thread(target=poll_loop, daemon=True)
 poller.start()
@@ -327,14 +398,17 @@ while True:
             if not data:
                 continue
             new_end = data.get("previousEnd")
-            if new_end != known[code]:
+            if new_end != known.get(code):
                 texts = build_message(code, data)
-                if reg["lolka"]:
-                    send_to_lolka(texts["lolka"])
-                send_to_max(reg["max_chat"], texts["max"])
-                known[code] = new_end
+                if texts:
+                    if reg["lolka"]:
+                        send_to_lolka(texts["lolka"])
+                    send_to_max(reg["max_chat"], texts["max"])
+                    known[code] = new_end
             else:
-                print(f"[{code}] Проверка {datetime.now(timezone.utc):%H:%M}: изменений нет")
+                # Раскомментируйте, если нужна тишина в логах
+                # print(f"[{code}] Проверка {datetime.now(timezone.utc):%H:%M}: изменений нет")
+                pass
         time.sleep(CHECK_INTERVAL)
     except Exception as e:
         print("Ошибка цикла, продолжаю работу:", e)
