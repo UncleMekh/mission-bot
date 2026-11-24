@@ -39,5 +39,5 @@ jobs:
           MAX_CHAT_ID_EU: ${{ secrets.MAX_CHAT_ID_EU }}
           MAX_CHAT_ID_NA: ${{ secrets.MAX_CHAT_ID_NA }}
           MAX_CHAT_ID_CEA: ${{ secrets.MAX_CHAT_ID_CEA }}
-          ADMIN_CHAT_ID: \${{ secrets.ADMIN_CHAT_ID }}
+          ADMIN_CHAT_ID: ${{ secrets.ADMIN_CHAT_ID }}
           PYTHONUNBUFFERED: "1"
