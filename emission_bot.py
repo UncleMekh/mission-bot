@@ -317,7 +317,13 @@ def build_message(region, data):
     f_start = (start_dt + timedelta(hours=2)).astimezone(MSK).strftime("%H:%M")
     f_end = (start_dt + timedelta(hours=4)).astimezone(MSK).strftime("%H:%M")
 
-    timers = " · ".join(CHANNEL_LINKS.get(r, r) for r in CHANNEL_LINKS)
+    timer_parts = []
+    for r in ["RU", "EU", "NA", "SEA"]:
+        if r == region:
+            timer_parts.append(r)               # просто текст, без ссылки
+        else:
+            timer_parts.append(CHANNEL_LINKS[r])  # ссылка на другой канал
+    timers = " · ".join(timer_parts)
 
     max_msg = (
         "✅ **ВЫБРОС ЗАКОНЧЕН**\n\n"
