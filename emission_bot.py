@@ -1,4 +1,4 @@
-import os, time, json, requests, urllib3
+import os, time, json, requests, urllib3, threading
 from datetime import datetime, timedelta, timezone
 from urllib3.exceptions import InsecureRequestWarning
 
@@ -297,9 +297,20 @@ def build_message(region, data):
         "max": max_msg,
         "lolka": lolka_msg,
     }
+def poll_loop():
+    """Фоновая петля: постоянно слушает личку и кнопки."""
+    while True:
+        try:
+            poll_max_updates()
+        except Exception as e:
+            print("poll loop ошибка:", e)
+        time.sleep(1)   # пауза между опросами новых сообщений
 
 MARKER = 0
 TICKET_MODE = set()
+# Запускаем фоновый поток: сообщения и кнопки обрабатываются мгновенно
+poller = threading.Thread(target=poll_loop, daemon=True)
+poller.start()
 
 # Старт: по каждому сегменту запоминаем свой последний конец выброса
 known = {}
@@ -324,7 +335,6 @@ while True:
                 known[code] = new_end
             else:
                 print(f"[{code}] Проверка {datetime.now(timezone.utc):%H:%M}: изменений нет")
-        poll_max_updates()   # слушаем личку и кнопки — каждый цикл
         time.sleep(CHECK_INTERVAL)
     except Exception as e:
         print("Ошибка цикла, продолжаю работу:", e)
