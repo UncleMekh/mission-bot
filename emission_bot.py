@@ -209,22 +209,18 @@ def poll_max_updates():
                            f"👤 <b>Пользователь:</b> {uname}\n"
                            f"🆔 <b>ID:</b> <code>{uid}</code>\n\n"
                            f"💬 <b>Текст:</b>\n{text}")
-                    
-                    # Ищем RU чат для отправки тикета
-                    target_chat_id = None
-                    for region in REGIONS:
-                        if region["code"] == "RU":
-                            target_chat_id = region["max_chat"]
-                            break
-                    
+    
+                    # ✅ ИСПРАВЛЕНИЕ: Берем ID из переменной окружения, а не из списка регионов
+                    target_chat_id = ADMIN_CHAT_ID
+    
                     if target_chat_id:
                         send_to_max(target_chat_id, fwd)
                         TICKET_MODE.discard(uid)
                         send_to_max(chat_id, "✅ Обращение отправлено администрации")
                     else:
-                        print("❌ ОШИБКА: Не найден MAX_CHAT_ID для региона RU!")
+                        print("❌ ОШИБКА: ADMIN_CHAT_ID не задан! Тикет не отправлен.")
                         TICKET_MODE.discard(uid)
-                        send_to_max(chat_id, "⚠️ Произошла ошибка при отправке обращения. Попробуйте позже.")
+                        send_to_max(chat_id, "⚠️ Произошла ошибка при отправке обращения. Администрация не настроена.")
                 
                 elif "обращение" in low:
                     handle_menu_action("ticket", chat_id, uid)
