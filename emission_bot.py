@@ -212,16 +212,29 @@ def poll_max_updates():
 
                 # 4. Логика обработки
                 if uid in TICKET_MODE and text:
-                    # Отправляем тикет
-                    fwd = (f"% НОВОЕ ОБРАЩЕНИЕ\n"
-                           f"От: {uname} (id {uid})\n"
-                           f"\n"
-                           f"{text}")
+                    fwd = (f"📩 <b>НОВОЕ ОБРАЩЕНИЕ</b>\n\n"
+                           f"👤 <b>Пользователь:</b> {uname}\n"
+                           f"🆔 <b>ID:</b> <code>{uid}</code>\n\n"
+                           f"💬 <b>Текст:</b>\n{text}")
+                    
                     time.sleep(3)
-                    if ADMIN_CHAT_ID:
-                        send_to_max(ADMIN_CHAT_ID, fwd)
-                    TICKET_MODE.discard(uid)
-                    send_to_max(chat_id, "✅ Обращение отправлено администрации")
+                    
+                    # ИЩЕМ ПРАВИЛЬНЫЙ ЧАТ ДЛЯ ОТПРАВКИ (из REGIONS)
+                    target_chat_id = None
+                    for region in REGIONS:
+                        if region["code"] == "RU":
+                            target_chat_id = region["max_chat"]
+                            break
+                    
+                    if target_chat_id:
+                        send_to_max(target_chat_id, fwd)
+                        print(f"✅ Тикет отправлен в чат: {target_chat_id}")
+                        TICKET_MODE.discard(uid)
+                        send_to_max(chat_id, "✅ Обращение отправлено администрации")
+                    else:
+                        print("❌ ОШИБКА: Не найден MAX_CHAT_ID для региона RU в переменных окружения!")
+                        TICKET_MODE.discard(uid)
+                        send_to_max(chat_id, "⚠️ Произошла ошибка при отправке обращения. Попробуйте позже.")
                 
                 elif "обращение" in low:
                     handle_menu_action("ticket", chat_id, uid)
