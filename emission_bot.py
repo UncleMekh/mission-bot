@@ -15,7 +15,7 @@ CHECK_INTERVAL = 30
 MSK = timezone(timedelta(hours=3))
 
 # ===== Настройки меню =====
-ADMIN_CHAT_ID = 501403859        # личка бот↔вы: сюда падают обращения
+ADMIN_CHAT_ID = int(os.environ.get("ADMIN_CHAT_ID", ""))        # бот↔группа: сюда падают обращения
 USER_CHAT = {}   # запоминаем chat_id тех, кто писал боту
 MAX_API = "https://platform-api2.max.ru"
 
