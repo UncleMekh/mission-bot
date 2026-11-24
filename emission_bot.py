@@ -205,10 +205,10 @@ def poll_max_updates():
 
                 # Логика тикетов
                 if uid in TICKET_MODE and text:
-                    fwd = (f"📩 <b>НОВОЕ ОБРАЩЕНИЕ</b>\n\n"
-                           f"👤 <b>Пользователь:</b> {uname}\n"
-                           f"🆔 <b>ID:</b> <code>{uid}</code>\n\n"
-                           f"💬 <b>Текст:</b>\n{text}")
+                    fwd = (f"📩 **НОВОЕ ОБРАЩЕНИЕ**\n\n"
+                           f"👤 **Пользователь:** {uname}\n"
+                           f"🆔 **ID:** `{uid}`\n\n"
+                           f"💬 **Текст:**\n{text}")
     
                     # ✅ ИСПРАВЛЕНИЕ: Берем ID из переменной окружения, а не из списка регионов
                     target_chat_id = ADMIN_CHAT_ID
