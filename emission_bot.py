@@ -136,14 +136,18 @@ def get_online_count():
                          headers={"User-Agent": "Mozilla/5.0"})
         print("Сайт статуса → статус", r.status_code)
         if r.status_code == 200:
-            m = re.search(r"Онлайн сейчас:\s*(\d+)", r.text)
+            plain = re.sub(r"<[^>]+>", " ", r.text)          # убираем теги
+            plain = plain.replace("\u00A0", " ")             # убираем неразрывные пробелы
+            m = re.search(r"Онлайн сейчас:\s*([\d\s]+)", plain)
             if m:
+                online = int(m.group(1).replace(" ", ""))
                 ONLINE_CACHE["ts"] = time.time()
-                ONLINE_CACHE["online"] = int(m.group(1))
-                print("Общий онлайн с сайта:", ONLINE_CACHE["online"])
-                return ONLINE_CACHE["online"]
-            print("Сайт отдал страницу, но цифры не нашёл; фрагмент:",
-                  r.text[:300].replace("\n", " "))
+                ONLINE_CACHE["online"] = online
+                print("Общий онлайн с сайта:", online)
+                return online
+            idx = plain.find("Онлайн")
+            print("Цифру не нашёл; окрестность 'Онлайн':",
+                  plain[idx:idx + 200] if idx != -1 else "нет слова 'Онлайн'")
     except Exception as e:
         print("Ошибка сайта статуса:", e)
     # 2) Фолбэк — Steam (только Steam-игроки)
