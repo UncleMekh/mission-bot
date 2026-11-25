@@ -126,6 +126,31 @@ def get_server_status():
         pass
     return result
 
+def get_online_count():
+    if time.time() - ONLINE_CACHE["ts"] < 180:
+        return ONLINE_CACHE["online"]
+    try:
+        r = requests.get(LAUNCHER_URL, timeout=10)
+        if r.status_code == 200:
+            data = r.json()
+            print("Онлайн с лаунчера:", json.dumps(data, ensure_ascii=False)[:800])
+            online = None
+            if isinstance(data, dict):
+                if "onlineCurrent" in data:
+                    online = data["onlineCurrent"]
+                elif "online" in data:
+                    online = data["online"]
+                elif isinstance(data.get("servers"), list):
+                    online = sum(s.get("onlineCurrent", 0) or 0 for s in data["servers"] if isinstance(s, dict))
+            elif isinstance(data, list):
+                online = sum(s.get("onlineCurrent", 0) or 0 for s in data if isinstance(s, dict))
+            ONLINE_CACHE["ts"] = time.time()
+            ONLINE_CACHE["online"] = None if online is None else int(online)
+            return online
+    except Exception as e:
+        print("Ошибка получения онлайна:", e)
+    return ONLINE_CACHE["online"]
+
 def send_menu(chat_id):
     if not chat_id:
         return
