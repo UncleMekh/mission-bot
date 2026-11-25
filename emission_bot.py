@@ -1,4 +1,4 @@
-import os, time, json, requests, urllib3, threading
+import os, time, json, re, requests, urllib3, threading
 from datetime import datetime, timedelta, timezone
 from urllib3.exceptions import InsecureRequestWarning
 
@@ -56,8 +56,8 @@ MAX_HEADERS = {
 STATUS_URL = "https://eapi.stalzone.com/regions"
 STATUS_CACHE_FILE = "status_cache.json"
 STATUS_CACHE_TTL = 180
-LAUNCHER_URL = "http://launcher.stalcraft.net/listServers?full=false&token=11111111-2222-3333-4444-555555555555&login=User"
-LAUNCHER_URL_HTTPS = "https://launcher.stalcraft.net/listServers?full=false&token=11111111-2222-3333-4444-555555555555&login=User"
+STATUS_SITE_URL = "https://stalcraft-status.ru/ru"
+STEAM_ONLINE_URL = "https://api.steampowered.com/ISteamUserStats/GetNumberOfCurrentPlayers/v1/?appid=1818450"
 ONLINE_CACHE = {"ts": 0, "online": None}
 
 CHANNEL_LINKS = {
@@ -130,32 +130,34 @@ def get_server_status():
 def get_online_count():
     if time.time() - ONLINE_CACHE["ts"] < 180:
         return ONLINE_CACHE["online"]
-    for url in (LAUNCHER_URL, LAUNCHER_URL_HTTPS):
-        try:
-            r = requests.get(url, timeout=10)
-            print("Лаунчер", url.split("?")[0], "→ статус", r.status_code)
-            if r.status_code != 200:
-                print("Ответ лаунчера:", r.text[:300])
-                continue
-            data = r.json()
-            print("Онлайн с лаунчера:", json.dumps(data, ensure_ascii=False)[:800])
-            online = None
-            if isinstance(data, dict):
-                servers = data.get("data")
-                if isinstance(servers, list):
-                    online = sum(s.get("onlineCurrent", 0) or 0 for s in servers if isinstance(s, dict))
-                elif "onlineCurrent" in data:
-                    online = data["onlineCurrent"]
-                elif "online" in data:
-                    online = data["online"]
-            elif isinstance(data, list):
-                online = sum(s.get("onlineCurrent", 0) or 0 for s in data if isinstance(s, dict))
-            if online:
+    # 1) Общий онлайн со стороннего сайта статуса
+    try:
+        r = requests.get(STATUS_SITE_URL, timeout=10,
+                         headers={"User-Agent": "Mozilla/5.0"})
+        print("Сайт статуса → статус", r.status_code)
+        if r.status_code == 200:
+            m = re.search(r"Онлайн сейчас:\s*(\d+)", r.text)
+            if m:
                 ONLINE_CACHE["ts"] = time.time()
-                ONLINE_CACHE["online"] = int(online)
+                ONLINE_CACHE["online"] = int(m.group(1))
+                print("Общий онлайн с сайта:", ONLINE_CACHE["online"])
                 return ONLINE_CACHE["online"]
-        except Exception as e:
-            print("Ошибка получения онлайна:", url.split("?")[0], "→", e)
+            print("Сайт отдал страницу, но цифры не нашёл; фрагмент:",
+                  r.text[:300].replace("\n", " "))
+    except Exception as e:
+        print("Ошибка сайта статуса:", e)
+    # 2) Фолбэк — Steam (только Steam-игроки)
+    try:
+        r = requests.get(STEAM_ONLINE_URL, timeout=10)
+        if r.status_code == 200:
+            count = r.json().get("response", {}).get("player_count")
+            if count is not None:
+                ONLINE_CACHE["ts"] = time.time()
+                ONLINE_CACHE["online"] = int(count)
+                print("Онлайн из Steam:", count)
+                return ONLINE_CACHE["online"]
+    except Exception as e:
+        print("Ошибка получения онлайна:", e)
     return ONLINE_CACHE["online"]
 
 def send_menu(chat_id):
