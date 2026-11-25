@@ -56,8 +56,9 @@ MAX_HEADERS = {
 STATUS_URL = "https://eapi.stalzone.com/regions"
 STATUS_CACHE_FILE = "status_cache.json"
 STATUS_CACHE_TTL = 180
-LAUNCHER_URL = "http://launcher.stalcraft.net/listServers"
-LAUNCHER_URL_HTTPS = "https://launcher.stalcraft.net/listServers"
+LAUNCHER_URL = "http://launcher.stalcraft.net/listServers?full=false"
+LAUNCHER_URL_HTTPS = "https://launcher.stalcraft.net/listServers?full=false"
+ONLINE_FALLBACK_URL = "http://reflectsolutions.ru:5050/online"
 ONLINE_CACHE = {"ts": 0, "online": None}
 
 CHANNEL_LINKS = {
@@ -132,15 +133,11 @@ def get_online_count():
         return ONLINE_CACHE["online"]
     for url in (LAUNCHER_URL, LAUNCHER_URL_HTTPS):
         try:
-            r = requests.get(url, timeout=10, allow_redirects=True)
+            r = requests.get(url, timeout=10)
             print("Лаунчер", url, "→ статус", r.status_code)
             if r.status_code != 200:
                 continue
-            try:
-                data = r.json()
-            except ValueError:
-                print("Лаунчер вернул не JSON:", r.text[:300])
-                continue
+            data = r.json()
             print("Онлайн с лаунчера:", json.dumps(data, ensure_ascii=False)[:800])
             online = None
             if isinstance(data, dict):
@@ -158,6 +155,29 @@ def get_online_count():
                 return ONLINE_CACHE["online"]
         except Exception as e:
             print("Ошибка получения онлайна:", url, "→", e)
+    # Запасной источник — ReflectSolutions
+    try:
+        r = requests.get(ONLINE_FALLBACK_URL, timeout=10)
+        print("Фолбэк", ONLINE_FALLBACK_URL, "→ статус", r.status_code, "тело:", r.text[:300])
+        if r.status_code == 200:
+            try:
+                data = r.json()
+            except ValueError:
+                data = None
+            online = None
+            if isinstance(data, dict):
+                for key in ("online", "onlineCurrent", "count", "value", "total"):
+                    if key in data:
+                        online = data[key]
+                        break
+            elif isinstance(data, (int, float)):
+                online = data
+            if online is not None:
+                ONLINE_CACHE["ts"] = time.time()
+                ONLINE_CACHE["online"] = int(online)
+                return ONLINE_CACHE["online"]
+    except Exception as e:
+        print("Ошибка фолбэка онлайна:", e)
     return ONLINE_CACHE["online"]
 
 def send_menu(chat_id):
