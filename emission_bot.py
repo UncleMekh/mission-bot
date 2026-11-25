@@ -156,6 +156,9 @@ def handle_menu_action(payload, chat_id, uid):
     elif payload == "status":
         status = get_server_status()
         msg = STATUS_ONLINE_TEXT if (status and status["ok"]) else STATUS_OFFLINE_TEXT
+        online = get_online_count()
+        if status and status["ok"] and online is not None:
+            msg += f"\n👥 Игроков онлайн: {online}"
         send_to_max(chat_id, msg)
     elif payload == "promocodes":
         send_to_max(chat_id, PROMO_TEXT)
@@ -235,6 +238,9 @@ def poll_max_updates():
                 elif "статус" in low or "сервер" in low:
                     status = get_server_status()
                     msg = STATUS_ONLINE_TEXT if (status and status["ok"]) else STATUS_OFFLINE_TEXT
+                    online = get_online_count()
+                    if status and status["ok"] and online is not None:
+                        msg += f"\n👥 Игроков онлайн: {online}"
                     send_to_max(chat_id, msg)
                 elif "привет" in low or "меню" in low or text == "/start":
                     send_menu(chat_id)
