@@ -31,15 +31,18 @@ USER_CHAT = {}
 MAX_API = "https://platform-api2.max.ru"
 
 # Тексты меню
-SUPPORT_TEXT = ("💰 Поддержать проект можно донатом:\n"
-                "[dalink.to/m3xgamer](https://dalink.to/m3xgamer)")
-STREAMS_TEXT = ("👋 Привет! Меня зовут Дядя Мэх.\n"
-                "В свободное время я веду стримы — буду рад, если заглянешь и посмотришь,"
-                " а если всё понравится, ещё и подпишишься 😄\n"
-                "\n"
-                "🌐 [Twitch — m3xgame](https://www.twitch.tv/m3xgame)\n"
-                "🌐 [VK Видео — m3xgamer](https://live.vkvideo.ru/m3xgamer)")
 TICKET_NOTICE = "🛠 Опишите суть обращения одним сообщением — я передам его администрации."
+
+AUTHOR_TEXT = ("👋 Приветствую тебя, путник Зоны!\n"
+               "Меня зовут Дядя Мэх!\n\n"
+               "В свободное время веду стримы — буду рад, если заглянешь.\n"
+               "Подписывайся, смотри:\n"
+               "🌐 [Twitch](https://www.twitch.tv/m3xgame)\n"
+               "🌐 [VK Видео](https://live.vkvideo.ru/m3xgamer)\n\n"
+               "Хочешь поддержать проект — любая сумма через донат:\n"
+               "💰 [dalink.to/m3xgamer](https://dalink.to/m3xgamer)")
+
+PROMO_TEXT = "🎁 Раздел промокодов в разработке. Скоро здесь появятся актуальные коды!"
 
 STATUS_ONLINE_TEXT = "🟢 Сервера в сети, зона ждёт тебя!"
 STATUS_OFFLINE_TEXT = ("🔴 Сервера недоступны, подожди ещё немного!\n"
@@ -130,12 +133,13 @@ def send_menu(chat_id):
         "attachments": [{
             "type": "inline_keyboard",
             "payload": {"buttons": [[
-                {"type": "callback", "text": "🛠 Обращение", "payload": "ticket"},
-                {"type": "callback", "text": "💰 Поддержка", "payload": "support"},
+                {"type": "callback", "text": "🖥 Мониторинг сервера", "payload": "status"},
             ], [
-                {"type": "callback", "text": "📺 Стримы", "payload": "streams"},
+                {"type": "callback", "text": "🎁 Промокоды", "payload": "promocodes"},
             ], [
-                {"type": "callback", "text": "🖥 Состояние сервера", "payload": "status"},
+                {"type": "callback", "text": "🛠 Тех Поддержка", "payload": "ticket"},
+            ], [
+                {"type": "callback", "text": "👤 Об Авторе", "payload": "author"},
             ]]}
         }]
     }
@@ -149,14 +153,14 @@ def handle_menu_action(payload, chat_id, uid):
     if payload == "ticket":
         TICKET_MODE.add(uid)
         send_to_max(chat_id, TICKET_NOTICE)
-    elif payload == "support":
-        send_to_max(chat_id, SUPPORT_TEXT)
-    elif payload == "streams":
-        send_to_max(chat_id, STREAMS_TEXT)
     elif payload == "status":
         status = get_server_status()
         msg = STATUS_ONLINE_TEXT if (status and status["ok"]) else STATUS_OFFLINE_TEXT
         send_to_max(chat_id, msg)
+    elif payload == "promocodes":
+        send_to_max(chat_id, PROMO_TEXT)
+    elif payload == "author":
+        send_to_max(chat_id, AUTHOR_TEXT)
     else:
         send_to_max(chat_id, "Не понял кнопку, открываю меню заново")
         send_menu(chat_id)
@@ -178,7 +182,7 @@ def poll_max_updates():
             return
             
         data = r.json()
-        updates = data.get("updates", )
+        updates = data.get("updates", [])
         
         for u in updates:
             ut = u.get("update_type")
@@ -222,12 +226,12 @@ def poll_max_updates():
                         TICKET_MODE.discard(uid)
                         send_to_max(chat_id, "⚠️ Произошла ошибка при отправке обращения. Администрация не настроена.")
                 
-                elif "обращение" in low:
+                elif "обращение" in low or "поддержка" in low:
                     handle_menu_action("ticket", chat_id, uid)
-                elif "поддержка" in low:
-                    send_to_max(chat_id, SUPPORT_TEXT)
-                elif "стрим" in low:
-                    send_to_max(chat_id, STREAMS_TEXT)
+                elif "промокод" in low:
+                    send_to_max(chat_id, PROMO_TEXT)
+                elif "стрим" in low or "автор" in low:
+                    send_to_max(chat_id, AUTHOR_TEXT)
                 elif "статус" in low or "сервер" in low:
                     status = get_server_status()
                     msg = STATUS_ONLINE_TEXT if (status and status["ok"]) else STATUS_OFFLINE_TEXT
