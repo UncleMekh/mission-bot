@@ -56,6 +56,8 @@ MAX_HEADERS = {
 STATUS_URL = "https://eapi.stalzone.com/regions"
 STATUS_CACHE_FILE = "status_cache.json"
 STATUS_CACHE_TTL = 180
+LAUNCHER_URL = "http://launcher.stalcraft.net/listServers"
+ONLINE_CACHE = {"ts": 0, "online": None}
 
 CHANNEL_LINKS = {
     "RU":  "[RU](https://max.ru/channel_EmissionRU)",
