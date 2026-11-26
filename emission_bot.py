@@ -128,7 +128,7 @@ def get_server_status():
     return result
 
 def get_online_count():
-    if time.time() - ONLINE_CACHE["ts"] < 180:
+    if time.time() - ONLINE_CACHE["ts"] < 600:
         return ONLINE_CACHE["online"]
     # 1) Общий онлайн со стороннего сайта статуса
     try:
@@ -136,29 +136,19 @@ def get_online_count():
                          headers={"User-Agent": "Mozilla/5.0"})
         print("Сайт статуса → статус", r.status_code)
         if r.status_code == 200:
-            raw = r.text
-            # Ищем числа в JSON-данных внутри страницы: "online": 12345 и похожие ключи
-            hits = re.findall(r'"(\w*[oO]nline\w*)"\s*:\s*"?(\d{1,7})"?', raw)
-            if hits:
-                print("Найденные ключи с числами:", hits[:20])
-                for key, val in hits:
-                    v = int(val)
-                    if 100 < v < 200000:      # отсекаем id и прочий мусор
-                        ONLINE_CACHE["ts"] = time.time()
-                        ONLINE_CACHE["online"] = v
-                        print("Общий онлайн с сайта:", key, "=", v)
-                        return v
-            # Чистим теги и ищем фразу «Онлайн сейчас» на случай серверного рендера
-            plain = raw.replace("\u00A0", " ")
+            plain = r.text.replace("\u00A0", " ")
             plain = re.sub(r"<[^>]+>", " ", plain)
-            m = re.search(r"Онлайн сейчас:\s*([\d\s]+)", plain)
+            m = re.search(r"Онлайн сейчас:?\s*([\d\s]+)", plain)
             if m:
                 online = int(m.group(1).replace(" ", ""))
                 ONLINE_CACHE["ts"] = time.time()
                 ONLINE_CACHE["online"] = online
                 print("Общий онлайн с сайта:", online)
                 return online
-            print("Чисел в HTML не нашёл; длина страницы:", len(raw))
+            # Диагностика: если фразы нет, смотрим, есть ли вообще ключи online
+            hits = re.findall(r'"(\w*[oO]nline\w*)"\s*:\s*"?(\d{1,7})"?', r.text)
+            print("Фразы 'Онлайн сейчас' не нашёл. Ключи в JSON:",
+                  hits[:20] if hits else "нет")
     except Exception as e:
         print("Ошибка сайта статуса:", e)
     # 2) Фолбэк — Steam (только Steam-игроки)
