@@ -138,17 +138,23 @@ def get_online_count():
         if r.status_code == 200:
             plain = r.text.replace("\u00A0", " ")
             plain = re.sub(r"<[^>]+>", " ", plain)
-            m = re.search(r"Онлайн сейчас:?\s*([\d\s]+)", plain)
-            if m:
-                online = int(m.group(1).replace(" ", ""))
-                ONLINE_CACHE["ts"] = time.time()
-                ONLINE_CACHE["online"] = online
-                print("Общий онлайн с сайта:", online)
-                return online
-            # Диагностика: если фразы нет, смотрим, есть ли вообще ключи online
-            hits = re.findall(r'"(\w*[oO]nline\w*)"\s*:\s*"?(\d{1,7})"?', r.text)
-            print("Фразы 'Онлайн сейчас' не нашёл. Ключи в JSON:",
-                  hits[:20] if hits else "нет")
+            idx = plain.find("Онлайн сейчас")
+            if idx != -1:
+                tail = plain[idx:idx + 80]
+                m = re.search(r"\d[\d\s]*", tail)
+                if m:
+                    digits = re.sub(r"\D", "", m.group())
+                    if digits:
+                        online = int(digits)
+                        ONLINE_CACHE["ts"] = time.time()
+                        ONLINE_CACHE["online"] = online
+                        print("Общий онлайн с сайта:", online)
+                        return online
+                print("Фраза найдена, но числа рядом нет; фрагмент:", tail)
+            else:
+                hits = re.findall(r'"(\w*[oO]nline\w*)"\s*:\s*"?(\d{1,7})"?', r.text)
+                print("Фразы 'Онлайн сейчас' не нашёл. Ключи в JSON:",
+                      hits[:20] if hits else "нет")
     except Exception as e:
         print("Ошибка сайта статуса:", e)
     # 2) Фолбэк — Steam (только Steam-игроки)
