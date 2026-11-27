@@ -157,6 +157,11 @@ def get_online_count():
                       hits[:20] if hits else "нет")
     except Exception as e:
         print("Ошибка сайта статуса:", e)
+    # Если недавно сайт показывал 0 (техработы/пустые сервера) —
+    # не подменяем ноль Steam-цифрой: она покажет игроков в меню, а не на серверах
+    if ONLINE_CACHE["online"] == 0:
+        print("Сайт не дал цифру, но ранее показывал 0 — остаёмся на 0")
+        return 0
     # 2) Фолбэк — Steam (только Steam-игроки)
     try:
         r = requests.get(STEAM_ONLINE_URL, timeout=10)
@@ -202,10 +207,13 @@ def handle_menu_action(payload, chat_id, uid):
         send_to_max(chat_id, TICKET_NOTICE)
     elif payload == "status":
         status = get_server_status()
-        msg = STATUS_ONLINE_TEXT if (status and status["ok"]) else STATUS_OFFLINE_TEXT
         online = get_online_count()
-        if status and status["ok"] and online is not None:
-            msg += f"\n👥 Игроков онлайн: {online}"
+        if online == 0:
+            msg = STATUS_OFFLINE_TEXT
+        else:
+            msg = STATUS_ONLINE_TEXT if (status and status["ok"]) else STATUS_OFFLINE_TEXT
+            if online is not None:
+                msg += f"\n👥 Игроков онлайн: {online}"
         send_to_max(chat_id, msg)
     elif payload == "promocodes":
         send_to_max(chat_id, PROMO_TEXT)
@@ -284,10 +292,13 @@ def poll_max_updates():
                     send_to_max(chat_id, AUTHOR_TEXT)
                 elif "статус" in low or "сервер" in low:
                     status = get_server_status()
-                    msg = STATUS_ONLINE_TEXT if (status and status["ok"]) else STATUS_OFFLINE_TEXT
                     online = get_online_count()
-                    if status and status["ok"] and online is not None:
-                        msg += f"\n👥 Игроков онлайн: {online}"
+                    if online == 0:
+                        msg = STATUS_OFFLINE_TEXT
+                    else:
+                        msg = STATUS_ONLINE_TEXT if (status and status["ok"]) else STATUS_OFFLINE_TEXT
+                        if online is not None:
+                            msg += f"\n👥 Игроков онлайн: {online}"
                     send_to_max(chat_id, msg)
                 elif "привет" in low or "меню" in low or text == "/start":
                     send_menu(chat_id)
