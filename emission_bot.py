@@ -222,6 +222,7 @@ def handle_menu_action(payload, chat_id, uid):
         TICKET_MODE.add(uid)
         send_to_max(chat_id, TICKET_NOTICE)
     elif payload == "status":
+        get_world_status()
         status = get_server_status()
         online = get_online_count()
         if online == 0:
