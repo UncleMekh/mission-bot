@@ -58,6 +58,7 @@ STATUS_CACHE_FILE = "status_cache.json"
 STATUS_CACHE_TTL = 180
 STATUS_SITE_URL = "https://stalcraft-status.ru/ru"
 STEAM_ONLINE_URL = "https://api.steampowered.com/ISteamUserStats/GetNumberOfCurrentPlayers/v1/?appid=1818450"
+LAUNCHER_SERVERS_URL = "http://launcher.stalcraft.net/listServers"
 ONLINE_CACHE = {"ts": 0, "online": None}
 
 CHANNEL_LINKS = {
@@ -103,6 +104,17 @@ def send_to_max(chat_id, text):
     except Exception as e:
         print("MAX ошибка:", e)
 
+def get_world_status():
+    """Диагностика: что лаунчер знает о доступности игровых серверов"""
+    try:
+        r = requests.get(LAUNCHER_SERVERS_URL, timeout=10)
+        print("listServers → статус", r.status_code)
+        print("listServers → тело:", r.text[:800])
+        return r
+    except Exception as e:
+        print("listServers ошибка:", e)
+        return None
+        
 def get_server_status():
     try:
         with open(STATUS_CACHE_FILE, "r", encoding="utf-8") as f:
@@ -295,6 +307,7 @@ def poll_max_updates():
                 elif "стрим" in low or "автор" in low:
                     send_to_max(chat_id, AUTHOR_TEXT)
                 elif "статус" in low or "сервер" in low:
+                    get_world_status()
                     status = get_server_status()
                     online = get_online_count()
                     if online == 0:
