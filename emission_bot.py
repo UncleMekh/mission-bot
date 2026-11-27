@@ -59,6 +59,7 @@ STATUS_CACHE_TTL = 180
 STATUS_SITE_URL = "https://stalcraft-status.ru/ru"
 STEAM_ONLINE_URL = "https://api.steampowered.com/ISteamUserStats/GetNumberOfCurrentPlayers/v1/?appid=1818450"
 LAUNCHER_SERVERS_URL = "http://launcher.stalcraft.net/listServers"
+MIN_ONLINE_THRESHOLD = int(os.environ.get("MIN_ONLINE_THRESHOLD", "50"))
 ONLINE_CACHE = {"ts": 0, "online": None}
 
 CHANNEL_LINKS = {
@@ -225,7 +226,7 @@ def handle_menu_action(payload, chat_id, uid):
         get_world_status()
         status = get_server_status()
         online = get_online_count()
-        if online == 0:
+        if online is not None and online < MIN_ONLINE_THRESHOLD:
             msg = STATUS_OFFLINE_TEXT
         else:
             msg = STATUS_ONLINE_TEXT if (status and status["ok"]) else STATUS_OFFLINE_TEXT
@@ -311,7 +312,7 @@ def poll_max_updates():
                     get_world_status()
                     status = get_server_status()
                     online = get_online_count()
-                    if online == 0:
+                    if online is not None and online < MIN_ONLINE_THRESHOLD:
                         msg = STATUS_OFFLINE_TEXT
                     else:
                         msg = STATUS_ONLINE_TEXT if (status and status["ok"]) else STATUS_OFFLINE_TEXT
