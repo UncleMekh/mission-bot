@@ -152,7 +152,6 @@ def get_online_count():
                         return online
                 print("Фраза найдена, но числа рядом нет; фрагмент:", tail)
             else:
-            else:
                 hits = re.findall(r'"(\w*[oO]nline\w*)"\s*:\s*"?(\d{1,7})"?', r.text)
                 print("Фразы 'Онлайн сейчас' не нашёл. Ключи в JSON:",
                       hits[:20] if hits else "нет")
